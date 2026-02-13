@@ -9,7 +9,7 @@ resource "azurerm_public_ip" "bastion" {
 
 # Bastion用NSG
 resource "azurerm_network_security_group" "bastion" {
-  name                = "test-bastion-nsg"
+  name                = "${var.prefix}-bastion-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -126,7 +126,7 @@ resource "azurerm_subnet_network_security_group_association" "bastion" {
 
 # Azure Bastion
 resource "azurerm_bastion_host" "main" {
-  name                = "test-bastion"
+  name                = "${var.prefix}-bastion"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = var.bastion_sku

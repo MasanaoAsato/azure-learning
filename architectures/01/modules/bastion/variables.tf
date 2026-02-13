@@ -2,6 +2,13 @@ locals {
   possible_bastion_sku = ["Developer", "Basic", "Standard", "Premium"]
 }
 
+variable "prefix" {
+  description = "prefix for resource name"
+  type        = string
+
+  default = "test"
+}
+
 variable "resource_group_name" {
   description = "The name of the resource group"
   type        = string

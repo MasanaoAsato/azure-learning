@@ -22,6 +22,7 @@ The following resources are used by this module:
 - [azurerm_postgresql_flexible_server.example](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/postgresql_flexible_server) (resource)
 - [azurerm_postgresql_flexible_server_database.example](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/postgresql_flexible_server_database) (resource)
 - [random_password.db_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) (resource)
+- [random_string.random](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) (resource)
 
 ## Required Inputs
 
@@ -86,6 +87,14 @@ Description: The version of the PostgreSQL Flexible Server.
 Type: `string`
 
 Default: `"18"`
+
+### <a name="input_prefix"></a> [prefix](#input\_prefix)
+
+Description: prefix for resource name
+
+Type: `string`
+
+Default: `"test"`
 
 ## Outputs
 

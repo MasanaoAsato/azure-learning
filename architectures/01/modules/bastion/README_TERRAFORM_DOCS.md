@@ -56,6 +56,14 @@ Type: `string`
 
 Default: `"Standard"`
 
+### <a name="input_prefix"></a> [prefix](#input\_prefix)
+
+Description: prefix for resource name
+
+Type: `string`
+
+Default: `"test"`
+
 ## Outputs
 
 The following outputs are exported:
