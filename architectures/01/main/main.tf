@@ -1,15 +1,18 @@
 module "resource_group" {
   source = "../modules/resource_group"
+  prefix = local.prefix
 }
 
 module "network" {
   source                          = "../modules/network"
+  prefix                          = local.prefix
   resource_group_default_name     = module.resource_group.resource_group_default_name
   resource_group_default_location = module.resource_group.resource_group_default_location
 }
 
 module "database" {
   source                          = "../modules/database"
+  prefix                          = local.prefix
   resource_group_default_name     = module.resource_group.resource_group_default_name
   resource_group_default_location = module.resource_group.resource_group_default_location
   azure_subnet_postgresql_id      = module.network.azure_subnet_postgresql_id
@@ -24,6 +27,7 @@ module "database" {
 
 module "bastion" {
   source              = "../modules/bastion"
+  prefix              = local.prefix
   resource_group_name = module.resource_group.resource_group_default_name
   location            = module.resource_group.resource_group_default_location
   bastion_subnet_id   = module.network.bastion_subnet_id
@@ -34,6 +38,7 @@ module "bastion" {
 
 module "jumpbox" {
   source                  = "../modules/jumpbox"
+  prefix                  = local.prefix
   resource_group_name     = module.resource_group.resource_group_default_name
   location                = module.resource_group.resource_group_default_location
   jumpbox_subnet_id       = module.network.jumpbox_subnet_id

@@ -3,6 +3,13 @@ locals {
   postgeresql_possible_versions = ["11", "12", "13", "14", "15", "16", "17", "18"]
 }
 
+variable "prefix" {
+  description = "prefix for resource name"
+  type        = string
+
+  default = "test"
+}
+
 variable "resource_group_default_location" {
   description = "The location of the resource group default"
   type        = string

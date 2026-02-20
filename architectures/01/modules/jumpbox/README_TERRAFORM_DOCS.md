@@ -59,6 +59,14 @@ Type: `string`
 
 Default: `"azureuser"`
 
+### <a name="input_prefix"></a> [prefix](#input\_prefix)
+
+Description: prefix for resource name
+
+Type: `string`
+
+Default: `"test"`
+
 ### <a name="input_vm_size"></a> [vm\_size](#input\_vm\_size)
 
 Description: The size of the VM
@@ -77,29 +85,5 @@ Default: `"Standard_LRS"`
 
 ## Outputs
 
-The following outputs are exported:
-
-### <a name="output_admin_password"></a> [admin\_password](#output\_admin\_password)
-
-Description: The admin password for the jumpbox VM
-
-### <a name="output_admin_username"></a> [admin\_username](#output\_admin\_username)
-
-Description: The admin username for the jumpbox VM
-
-### <a name="output_jumpbox_id"></a> [jumpbox\_id](#output\_jumpbox\_id)
-
-Description: The ID of the jumpbox VM
-
-### <a name="output_jumpbox_name"></a> [jumpbox\_name](#output\_jumpbox\_name)
-
-Description: The name of the jumpbox VM
-
-### <a name="output_jumpbox_private_ip"></a> [jumpbox\_private\_ip](#output\_jumpbox\_private\_ip)
-
-Description: The private IP address of the jumpbox VM
-
-### <a name="output_ssh_private_key"></a> [ssh\_private\_key](#output\_ssh\_private\_key)
-
-Description: The SSH private key for the jumpbox VM
+No outputs.
 <!-- END_TF_DOCS -->

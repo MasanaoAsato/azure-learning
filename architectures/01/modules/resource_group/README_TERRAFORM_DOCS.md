@@ -21,11 +21,25 @@ The following resources are used by this module:
 
 ## Required Inputs
 
-No required inputs.
+The following input variables are required:
+
+### <a name="input_location"></a> [location](#input\_location)
+
+Description: The Azure region
+
+Type: `string`
 
 ## Optional Inputs
 
-No optional inputs.
+The following input variables are optional (have default values):
+
+### <a name="input_prefix"></a> [prefix](#input\_prefix)
+
+Description: prefix for resource name
+
+Type: `string`
+
+Default: `"test"`
 
 ## Outputs
 

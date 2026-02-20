@@ -6,7 +6,7 @@ resource "random_password" "admin_password" {
 
 # Jumpbox用NSG
 resource "azurerm_network_security_group" "jumpbox" {
-  name                = "test-jumpbox-nsg"
+  name                = "${var.prefix}-jumpbox-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -137,7 +137,7 @@ resource "azurerm_subnet_network_security_group_association" "jumpbox" {
 
 # Jumpbox用NIC
 resource "azurerm_network_interface" "jumpbox" {
-  name                = "test-jumpbox-nic"
+  name                = "${var.prefix}-jumpbox-nic"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -198,7 +198,7 @@ resource "azurerm_network_interface" "jumpbox" {
 
 # Jumpbox Windows VM
 resource "azurerm_windows_virtual_machine" "jumpbox" {
-  name                = "test-jumpbox"
+  name                = "${var.prefix}-jumpbox"
   resource_group_name = var.resource_group_name
   location            = var.location
   size                = var.vm_size

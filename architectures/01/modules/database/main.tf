@@ -4,8 +4,13 @@ resource "random_password" "db_password" {
   override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
+resource "random_string" "random" {
+  length  = 8
+  special = true
+}
+
 resource "azurerm_postgresql_flexible_server" "example" {
-  name                              = "example-psqlflexibleser-89werhuoyp3"
+  name                              = "${var.prefix}-psqlflexibleser-${random_string.random.result}"
   resource_group_name               = var.resource_group_default_name
   location                          = var.resource_group_default_location
   version                           = var.db_version
@@ -24,7 +29,7 @@ resource "azurerm_postgresql_flexible_server" "example" {
 
 
 resource "azurerm_postgresql_flexible_server_database" "example" {
-  name      = "exampledb"
+  name      = "${var.prefix}db"
   server_id = azurerm_postgresql_flexible_server.example.id
   collation = "en_US.utf8"
   charset   = "UTF8"

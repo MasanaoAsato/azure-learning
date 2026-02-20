@@ -2,6 +2,13 @@ locals {
   possible_storage_account_types = ["Standard_LRS", "StandardSSD_LRS", "Premium_LRS", "StandardSSD_ZRS ", "Premium_ZRS"]
 }
 
+variable "prefix" {
+  description = "prefix for resource name"
+  type        = string
+
+  default = "test"
+}
+
 variable "resource_group_name" {
   description = "The name of the resource group"
   type        = string

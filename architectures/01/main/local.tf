@@ -1,4 +1,7 @@
 locals {
+  # common
+  prefix = "test"
+
   # database関連
   db_storage               = 32768
   db_sku_name              = "GP_Standard_D2s_v3"
