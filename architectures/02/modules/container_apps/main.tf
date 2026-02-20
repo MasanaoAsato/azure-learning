@@ -7,7 +7,6 @@ resource "azurerm_container_app_environment" "default" {
 
 resource "azurerm_container_app" "default" {
   name                         = "${var.prefix}-capp"
-  location                     = var.resource_group_default_location
   resource_group_name          = var.resource_group_default_name
   container_app_environment_id = azurerm_container_app_environment.default.id
 
