@@ -12,10 +12,10 @@ module "storage_account" {
 }
 
 module "front_door" {
-  source                          = "../modules/front_door"
-  prefix                          = local.prefix
-  resource_group_default_name     = module.resource_group.resource_group_default_name
-  storage_primary_web_host        = module.storage_account.primary_web_host
+  source                      = "../modules/front_door"
+  prefix                      = local.prefix
+  resource_group_default_name = module.resource_group.resource_group_default_name
+  storage_primary_web_host    = module.storage_account.primary_web_host
 
   frontdoor_cdn_priority             = local.frontdoor_cdn_priority
   frontdoor_cdn_weight               = local.frontdoor_cdn_weight
