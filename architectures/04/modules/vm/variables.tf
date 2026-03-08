@@ -29,6 +29,16 @@ variable "subnet_spoke2_id" {
   type        = string
 }
 
+variable "bastion_subnet_ip_prefixes" {
+  description = "The address prefixes of the bastion subnet"
+  type        = list(string)
+}
+
+variable "spoke1_subnet_ip_prefixes" {
+  description = "The address prefixes of the spoke1 subnet for VMs"
+  type        = list(string)
+}
+
 variable "vm_size" {
   description = "The size of the VM"
   type        = string
