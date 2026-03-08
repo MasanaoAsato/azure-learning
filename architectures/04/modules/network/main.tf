@@ -53,31 +53,6 @@ resource "azurerm_subnet" "spoke2-vm" {
   address_prefixes     = ["10.2.1.0/24"]
 }
 
-# spoke1とspoke2のnic
-resource "azurerm_network_interface" "spoke1-vm" {
-  name                = "${var.prefix}-spoke1-vm-nic"
-  location            = var.resource_group_default_location
-  resource_group_name = var.resource_group_default_name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.spoke1-vm.id
-    private_ip_address_allocation = "Dynamic"
-  }
-}
-
-resource "azurerm_network_interface" "spoke2-vm" {
-  name                = "${var.prefix}-spoke2-vm-nic"
-  location            = var.resource_group_default_location
-  resource_group_name = var.resource_group_default_name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.spoke2-vm.id
-    private_ip_address_allocation = "Dynamic"
-  }
-}
-
 # vnet peeringの設定
 resource "azurerm_virtual_network_peering" "hub-spoke1" {
   name                      = "peer-hub-to-spoke1"

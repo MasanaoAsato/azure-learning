@@ -16,14 +16,27 @@ resource "random_password" "admin_password_spoke2" {
   min_numeric = 4
 }
 
+resource "azurerm_network_interface" "spoke1-vm" {
+  name                = "${var.prefix}-spoke1-vm-nic"
+  location            = var.resource_group_default_location
+  resource_group_name = var.resource_group_default_name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = var.subnet_spoke1_id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
 # ここでは、簡単のためにssh_keyではなく、admin_passwordにします。
 resource "azurerm_linux_virtual_machine" "spoke1" {
   name                  = "${var.prefix}-spoke1-vm"
   location              = var.resource_group_default_location
   resource_group_name   = var.resource_group_default_name
-  network_interface_ids = [var.nic_spoke1_id]
+  network_interface_ids = [azurerm_network_interface.spoke1-vm.id]
   admin_username        = var.admin_username
   admin_password        = random_password.admin_password_spoke1.result
+  disable_password_authentication = false
   size                  = var.vm_size
 
   os_disk {
@@ -39,14 +52,28 @@ resource "azurerm_linux_virtual_machine" "spoke1" {
   }
 }
 
+resource "azurerm_network_interface" "spoke2-vm" {
+  name                = "${var.prefix}-spoke2-vm-nic"
+  location            = var.resource_group_default_location
+  resource_group_name = var.resource_group_default_name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = var.subnet_spoke2_id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
+
 # ここでは、簡単のためにssh_keyではなく、admin_passwordにします。
 resource "azurerm_linux_virtual_machine" "spoke2" {
   name                  = "${var.prefix}-spoke2-vm"
   location              = var.resource_group_default_location
   resource_group_name   = var.resource_group_default_name
-  network_interface_ids = [var.nic_spoke2_id]
+  network_interface_ids = [azurerm_network_interface.spoke2-vm.id]
   admin_username        = var.admin_username
   admin_password        = random_password.admin_password_spoke2.result
+  disable_password_authentication = false
   size                  = var.vm_size
 
   os_disk {

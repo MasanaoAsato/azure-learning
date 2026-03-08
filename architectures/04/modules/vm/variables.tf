@@ -1,3 +1,7 @@
+locals {
+  possible_storage_account_types = ["Standard_LRS", "StandardSSD_LRS", "Premium_LRS", "StandardSSD_ZRS ", "Premium_ZRS"]
+}
+
 variable "resource_group_default_location" {
   description = "The location of the resource group default"
   type        = string
@@ -15,7 +19,6 @@ variable "prefix" {
   default = "test"
 }
 
-
 variable "subnet_spoke1_id" {
   description = "Subnet id of spoke1 for VMs"
   type        = string
@@ -23,16 +26,6 @@ variable "subnet_spoke1_id" {
 
 variable "subnet_spoke2_id" {
   description = "Subnet id of spoke2 for VMs"
-  type        = string
-}
-
-variable "nic_spoke1_id" {
-  description = "Network interface id of spoke1 VM"
-  type        = string
-}
-
-variable "nic_spoke2_id" {
-  description = "Network interface id of spoke2 VM"
   type        = string
 }
 
