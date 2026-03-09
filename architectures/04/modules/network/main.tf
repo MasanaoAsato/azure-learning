@@ -67,6 +67,7 @@ resource "azurerm_virtual_network_peering" "spoke1-hub" {
   resource_group_name       = var.resource_group_default_name
   virtual_network_name      = azurerm_virtual_network.spoke1.name
   remote_virtual_network_id = azurerm_virtual_network.hub.id
+  allow_forwarded_traffic   = true
 }
 
 resource "azurerm_virtual_network_peering" "hub-spoke2" {
@@ -82,6 +83,7 @@ resource "azurerm_virtual_network_peering" "spoke2-hub" {
   resource_group_name       = var.resource_group_default_name
   virtual_network_name      = azurerm_virtual_network.spoke2.name
   remote_virtual_network_id = azurerm_virtual_network.hub.id
+  allow_forwarded_traffic   = true
 }
 
 # HubのVnetのAzure Firewall
@@ -130,6 +132,19 @@ resource "azurerm_firewall_policy_rule_collection_group" "network_rules" {
       source_addresses      = ["10.1.1.0/24"]
       destination_addresses = ["10.2.1.0/24"]
       destination_ports     = ["3306"]
+    }
+  }
+
+  network_rule_collection {
+    name     = "allow-spokes-to-internet-web"
+    priority = 110
+    action   = "Allow"
+    rule {
+      name                  = "allow-web-egress"
+      protocols             = ["TCP"]
+      source_addresses      = ["10.1.1.0/24", "10.2.1.0/24"]
+      destination_addresses = ["0.0.0.0/0"]
+      destination_ports     = ["80", "443"]
     }
   }
 }

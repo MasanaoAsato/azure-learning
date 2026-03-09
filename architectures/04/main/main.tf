@@ -34,6 +34,7 @@ module "vm" {
   vm_size                         = local.vm_size
   vm_storage_account_type         = local.vm_storage_account_type
   admin_username                  = local.admin_username
+  db_app_username                 = local.db_app_username
 
   depends_on = [module.network, module.bastion]
 }

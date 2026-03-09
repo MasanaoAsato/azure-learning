@@ -16,6 +16,14 @@ resource "random_password" "admin_password_spoke2" {
   min_numeric = 4
 }
 
+resource "random_password" "db_app_password" {
+  length      = 20
+  special     = false
+  min_lower   = 6
+  min_upper   = 6
+  min_numeric = 6
+}
+
 resource "azurerm_network_security_group" "spoke1" {
   name                = "${var.prefix}-nsg-spoke1"
   location            = var.resource_group_default_location
@@ -133,6 +141,14 @@ resource "azurerm_linux_virtual_machine" "spoke1" {
     sku       = "22_04-lts-gen2"
     version   = "latest"
   }
+
+  custom_data = base64encode(<<-EOF
+    #cloud-config
+    package_update: true
+    packages:
+      - mysql-client
+  EOF
+  )
 }
 
 resource "azurerm_network_interface" "spoke2-vm" {
@@ -177,8 +193,17 @@ resource "azurerm_linux_virtual_machine" "spoke2" {
     packages:
       - mysql-server
     runcmd:
+      - until apt-get update; do sleep 10; done
+      - until DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server; do sleep 10; done
+      - test -f /etc/mysql/mysql.conf.d/mysqld.cnf && sed -ri 's/^[[:space:]]*bind-address[[:space:]]*=.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
+      - test -f /etc/mysql/mysql.conf.d/mysqld.cnf && sed -ri 's/^[[:space:]]*skip-networking/# skip-networking/' /etc/mysql/mysql.conf.d/mysqld.cnf
       - systemctl enable mysql
       - systemctl start mysql
+      - systemctl restart mysql
+      - mysql -e "CREATE USER IF NOT EXISTS '${var.db_app_username}'@'${join(".", slice(split(".", split("/", var.spoke1_subnet_ip_prefixes[0])[0]), 0, 3))}.%' IDENTIFIED BY '${random_password.db_app_password.result}';"
+      - mysql -e "CREATE DATABASE IF NOT EXISTS appdb;"
+      - mysql -e "GRANT SELECT, INSERT, UPDATE, DELETE ON appdb.* TO '${var.db_app_username}'@'${join(".", slice(split(".", split("/", var.spoke1_subnet_ip_prefixes[0])[0]), 0, 3))}.%';"
+      - mysql -e "FLUSH PRIVILEGES;"
   EOF
   )
 }

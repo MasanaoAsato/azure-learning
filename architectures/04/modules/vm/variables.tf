@@ -61,3 +61,9 @@ variable "admin_username" {
   type        = string
   default     = "azureuser"
 }
+
+variable "db_app_username" {
+  description = "Application username for MySQL on spoke2"
+  type        = string
+  default     = "appuser"
+}
