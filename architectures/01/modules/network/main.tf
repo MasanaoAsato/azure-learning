@@ -26,10 +26,9 @@ resource "azurerm_private_dns_zone" "postgresql" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgresql" {
-  name                  = "postgres-dns-link"
-  resource_group_name   = var.resource_group_default_name
-  private_dns_zone_name = azurerm_private_dns_zone.postgresql.name
-  virtual_network_id    = azurerm_virtual_network.default.id
+  name                = "postgres-dns-link"
+  private_dns_zone_id = azurerm_private_dns_zone.postgresql.id
+  virtual_network_id  = azurerm_virtual_network.default.id
 }
 
 resource "azurerm_subnet" "bastion" {

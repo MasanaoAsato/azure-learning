@@ -1,6 +1,7 @@
 module "resource_group" {
   source = "../modules/resource_group"
   prefix = local.prefix
+  location = local.location
 }
 
 module "network" {
