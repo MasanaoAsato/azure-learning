@@ -1,6 +1,6 @@
 locals {
   # common
-  prefix = "test"
+  prefix   = "test"
   location = "japaneast"
 
   # database関連
