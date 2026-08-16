@@ -1,6 +1,7 @@
 locals {
   # common
-  prefix = "test"
+  prefix   = "test"
+  location = "japaneast"
 
   # database関連
   db_storage               = 32768

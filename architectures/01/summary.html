@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 — Azure Bastion から閉域 PostgreSQL を管理する | azure-learning</title>
+<style>
+  :root {
+    --bg: #fbfbfa;
+    --surface: #ffffff;
+    --surface-2: #f4f5f7;
+    --border: #e3e5e8;
+    --text: #1d2025;
+    --text-dim: #5b6270;
+    --accent: #2f6fd0;
+    --accent-soft: #e8f0fc;
+    --warn: #b4560c;
+    --warn-soft: #fdf1e4;
+    --ok: #1f7a4d;
+    --code-bg: #1e2229;
+    --code-text: #e6e9ef;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c;
+      --surface: #1b1f26;
+      --surface-2: #23282f;
+      --border: #333a44;
+      --text: #e7eaee;
+      --text-dim: #a2abb8;
+      --accent: #7bafff;
+      --accent-soft: #1d2b40;
+      --warn: #e3a25f;
+      --warn-soft: #33261a;
+      --ok: #63c491;
+      --code-bg: #0f1216;
+      --code-text: #e6e9ef;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+    font-size: 15px;
+    line-height: 1.85;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
+  .hero { padding: 48px 0 24px; border-bottom: 1px solid var(--border); }
+  .hero .num {
+    display: inline-block; font-size: 12px; letter-spacing: .12em; font-weight: 700;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 4px 12px; border-radius: 999px;
+  }
+  .hero h1 { font-size: 27px; line-height: 1.45; margin: 14px 0 10px; letter-spacing: -.01em; }
+  .hero .lead { color: var(--text-dim); margin: 0; font-size: 15.5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .chip {
+    font-size: 12.5px; padding: 4px 11px; border-radius: 6px;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim);
+  }
+  .chip.cost { color: var(--warn); background: var(--warn-soft); border-color: transparent; font-weight: 600; }
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  nav ul { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; margin: 0; padding: 10px 0; }
+  nav a {
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 6px;
+  }
+  nav a:hover { color: var(--accent); background: var(--accent-soft); }
+  section { margin-bottom: 52px; scroll-margin-top: 64px; }
+  h2 {
+    font-size: 19px; margin: 0 0 6px; padding-bottom: 10px;
+    border-bottom: 2px solid var(--border); letter-spacing: -.01em;
+  }
+  .section-note { color: var(--text-dim); font-size: 13.5px; margin: 8px 0 24px; }
+  h3 { font-size: 16px; margin: 0 0 8px; line-height: 1.6; }
+  p { margin: 0 0 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px;
+  }
+  .learn { display: flex; gap: 16px; }
+  .learn .idx {
+    flex: 0 0 30px; height: 30px; border-radius: 8px;
+    background: var(--accent-soft); color: var(--accent);
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .learn .body { flex: 1; min-width: 0; }
+  .learn p:last-child { margin-bottom: 0; }
+  .link-check {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--accent); text-decoration: none;
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+    border-radius: 6px; padding: 3px 10px; margin-top: 10px;
+  }
+  .link-check:hover { background: var(--accent-soft); border-style: solid; }
+  .diagram { margin: 4px 0 20px; }
+  .diagram a {
+    display: block; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; text-align: center; text-decoration: none;
+  }
+  .diagram img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .diagram .cap { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 0 0 8px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; letter-spacing: .04em; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td code, p code, li code { font-size: 12.5px; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px;
+  }
+  .code { position: relative; margin: 10px 0 14px; }
+  .code pre {
+    margin: 0; background: var(--code-bg); color: var(--code-text);
+    border-radius: 8px; padding: 15px 17px; overflow-x: auto;
+    font-size: 12.5px; line-height: 1.7;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .code pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+  .copy {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(255,255,255,.08); color: #cfd6e0;
+    border: 1px solid rgba(255,255,255,.16); border-radius: 5px;
+    font-size: 11px; padding: 3px 9px; cursor: pointer; opacity: 0; transition: opacity .15s;
+  }
+  .code:hover .copy, .copy:focus { opacity: 1; }
+  .copy:hover { background: rgba(255,255,255,.16); }
+  .check { border-left: 3px solid var(--accent); }
+  .check .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--accent);
+    text-transform: uppercase;
+  }
+  .step-label {
+    font-size: 12px; font-weight: 700; color: var(--text-dim);
+    letter-spacing: .04em; margin: 16px 0 4px;
+  }
+  .expect {
+    background: var(--surface-2); border-radius: 8px; padding: 12px 15px;
+    font-size: 13.5px; margin: 4px 0 0;
+  }
+  .expect ul { margin: 0; padding-left: 20px; }
+  .expect li { margin-bottom: 4px; }
+  .insight {
+    border-left: 3px solid var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent);
+    border-radius: 0 8px 8px 0; padding: 12px 15px; font-size: 14px; margin-top: 6px;
+  }
+  .link-back { font-size: 12.5px; color: var(--text-dim); text-decoration: none; }
+  .link-back:hover { color: var(--accent); }
+  .pitfall { border-left: 3px solid var(--warn); }
+  .pitfall h3 { color: var(--warn); font-size: 15px; }
+  .selfcheck { list-style: none; margin: 0; padding: 0; }
+  .selfcheck li {
+    display: flex; gap: 11px; align-items: flex-start;
+    padding: 11px 0; border-bottom: 1px dashed var(--border); font-size: 14.5px;
+  }
+  .selfcheck li:last-child { border-bottom: none; }
+  .selfcheck input { margin-top: 6px; flex: 0 0 auto; accent-color: var(--accent); }
+  .selfcheck input:checked + span { color: var(--text-dim); text-decoration: line-through; }
+  .links { list-style: none; margin: 0; padding: 0; }
+  .links li { padding: 7px 0; font-size: 14px; }
+  .links a { color: var(--accent); }
+  .links .desc { color: var(--text-dim); font-size: 13px; }
+  footer {
+    margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border);
+    color: var(--text-dim); font-size: 12.5px;
+  }
+  @media print {
+    :root {
+      --bg: #fff; --surface: #fff; --surface-2: #f6f6f6; --border: #ccc;
+      --text: #000; --text-dim: #444; --accent: #14459c; --accent-soft: #eef3fb;
+      --code-bg: #f4f4f4; --code-text: #000;
+    }
+    body { font-size: 10.5pt; line-height: 1.65; }
+    nav, .copy { display: none; }
+    .wrap { max-width: none; padding: 0; }
+    .hero { padding-top: 0; }
+    .card, .code, .diagram, table { break-inside: avoid; page-break-inside: avoid; }
+    .diagram img { max-height: 320px; }
+    section { break-inside: auto; margin-bottom: 26px; }
+    h2 { break-after: avoid; }
+    .code pre { border: 1px solid #ddd; white-space: pre-wrap; word-break: break-all; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="num">ARCHITECTURE 01</span>
+  <h1>Azure Bastion から閉域 PostgreSQL を管理する</h1>
+  <p class="lead">Bastion を管理の入口に固定し、Jumpbox と VNet 統合した PostgreSQL の公開面を分けて確認する。</p>
+  <div class="chips">
+    <span class="chip">Azure Bastion Standard</span>
+    <span class="chip">Windows Jumpbox</span>
+    <span class="chip">PostgreSQL Flexible Server</span>
+    <span class="chip">Japan East</span>
+    <span class="chip cost">Bastion・VM・DB は稼働中に課金。検証後は destroy</span>
+  </div>
+</header>
+
+<nav>
+  <ul>
+    <li><a href="#learn">学ぶこと</a></li>
+    <li><a href="#stack">構成</a></li>
+    <li><a href="#design">設計の要点</a></li>
+    <li><a href="#checks">確認のしかた</a></li>
+    <li><a href="#pitfalls">後始末・つまずき</a></li>
+    <li><a href="#selfcheck">理解度チェック</a></li>
+    <li><a href="#refs">参考</a></li>
+  </ul>
+</nav>
+
+<section id="learn">
+  <h2>このテーマで学ぶこと</h2>
+  <p class="section-note">各項目には、それを自分の目で確かめる手順が紐づいている。</p>
+
+  <div class="card learn" id="learn-1">
+    <div class="idx">1</div>
+    <div class="body">
+      <h3>外部に出す入口は Bastion だけにし、Jumpbox には Public IP を付けない</h3>
+      <p>Portal から VM を操作できることと、VM の管理ポートを公開することは別である。Bastion に Public IP を関連付け、Jumpbox の NIC をプライベート IP だけにすると、管理経路を一か所に絞れる。</p>
+      <a class="link-check" href="#check-1">→ 確認 1：Bastion と Jumpbox の IP 関連付けを比較する</a>
+    </div>
+  </div>
+
+  <div class="card learn" id="learn-2">
+    <div class="idx">2</div>
+    <div class="body">
+      <h3>Bastion と Jumpbox の NSG は、役割ごとに許可する通信が異なる</h3>
+      <p>Bastion 側にはサービス運用に必要な受信規則があり、Jumpbox 側には Bastion サブネットからの RDP/SSH だけを通す規則がある。両者を同じ「踏み台用 NSG」としてまとめないことで、公開入口と VM の受信面を混同しない。</p>
+      <a class="link-check" href="#check-2">→ 確認 2：二つの NSG の受信規則を比べる</a>
+    </div>
+  </div>
+
+  <div class="card learn" id="learn-3">
+    <div class="idx">3</div>
+    <div class="body">
+      <h3>PostgreSQL を VNet 統合すると、公開アクセスを無効にしても VNet 内から接続できる</h3>
+      <p>Flexible Server には委任サブネットと Private DNS Zone を渡し、`public_network_access_enabled = false` を指定している。接続可否は「インターネットから到達できるか」ではなく、委任されたサブネットと DNS を含む VNet 内の経路で決まる。</p>
+      <a class="link-check" href="#check-3">→ 確認 3：DB のネットワーク設定を取得する</a>
+    </div>
+  </div>
+
+  <div class="card learn" id="learn-4">
+    <div class="idx">4</div>
+    <div class="body">
+      <h3>閉域 DB の接続では、ポートだけでなく Private DNS Zone の VNet リンクも確認する</h3>
+      <p>Jumpbox が DB の FQDN を解決できなければ、5432 の許可規則だけでは接続できない。DNS Zone を VNet にリンクし、DB 用の A レコードが作成されるところまで見ると、名前解決とネットワーク到達性を分けて説明できる。</p>
+      <a class="link-check" href="#check-4">→ 確認 4：DNS Zone の VNet リンクとレコードを見る</a>
+    </div>
+  </div>
+</section>
+
+<section id="stack">
+  <h2>何を作ったか</h2>
+  <p class="section-note">Bastion を入口に、Windows Jumpbox を経由して VNet 統合した PostgreSQL を管理する Terraform 構成。</p>
+
+  <div class="diagram">
+    <a href="architecture.svg" target="_blank" rel="noopener">
+      <img src="architecture.svg" alt="Architecture 01 の構成図">
+      <span class="cap">architecture.svg（クリックで拡大）</span>
+    </a>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>モジュール</th><th>役割</th><th>効いている設定</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>modules/network</code></td>
+        <td>VNet、サブネット、Private DNS Zone と VNet リンクを作る。</td>
+        <td>PostgreSQL サブネットを <code>Microsoft.DBforPostgreSQL/flexibleServers</code> へ委任</td>
+      </tr>
+      <tr>
+        <td><code>modules/bastion</code></td>
+        <td>Public IP を持つ Bastion と専用 NSG を作る。</td>
+        <td><code>sku = "Standard"</code>、Static Standard Public IP</td>
+      </tr>
+      <tr>
+        <td><code>modules/jumpbox</code></td>
+        <td>Public IP を持たない Windows 管理 VM と NSG を作る。</td>
+        <td><code>size = "Standard_B2ms"</code>、Bastion 経由の RDP/SSH のみ受信</td>
+      </tr>
+      <tr>
+        <td><code>modules/database</code></td>
+        <td>VNet 統合した PostgreSQL Flexible Server を作る。</td>
+        <td><code>public_network_access_enabled = false</code>、32 GiB、7 日バックアップ</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="design">
+  <h2>設計の要点</h2>
+  <p class="section-note">「そう書いてある」ではなく「そう書いた理由」。</p>
+
+  <div class="card">
+    <h3>管理の入口を Bastion に集める</h3>
+    <p>Jumpbox の NIC に Public IP を定義せず、Bastion だけに Public IP を関連付ける。管理 VM の 3389 を直接公開する構成ではなく、Bastion のセッションを入口にする選択である。</p>
+  </div>
+  <div class="card">
+    <h3>DB の VNet 統合には DNS を含める</h3>
+    <p>Flexible Server へ委任サブネットと Private DNS Zone を渡し、Zone を VNet にリンクする。Private access の接続は IP 到達性だけでは完結せず、DB の FQDN を VNet 内で解決できることまでが構成の一部になる。</p>
+  </div>
+  <div class="card">
+    <h3>Jumpbox のクライアント導入は手動にしている</h3>
+    <p>VM 拡張でのツール導入はコメントアウトされており、Bastion 経由で RDP 接続した後に DB クライアントを手動で入れる前提である。自動構成までをこのテーマの完了条件には含めない割り切りになっている。</p>
+  </div>
+</section>
+
+<section id="checks">
+  <h2>どう確認するか</h2>
+  <p class="section-note">実リソース名は環境ごとに異なるため、プレースホルダを置き換えて Azure CLI で確認する。Azure CLI へのサインインと、Terraform の apply 完了が前提。</p>
+
+  <div class="card">
+    <h3>共通の準備</h3>
+    <div class="code">
+      <button class="copy">copy</button>
+      <pre><code>az login
+export RG_NAME='&lt;resource-group-name&gt;'
+export BASTION_NAME='&lt;bastion-name&gt;'
+export VM_NAME='&lt;jumpbox-vm-name&gt;'
+export PG_NAME='&lt;postgres-server-name&gt;'</code></pre>
+    </div>
+  </div>
+
+  <div class="card check" id="check-1">
+    <span class="tag">確認 1</span>
+    <h3>Bastion と Jumpbox の IP 関連付けを比較する</h3>
+    <p>Bastion には Public IP があり、Jumpbox の NIC には Public IP がないことを確かめる。 <a class="link-back" href="#learn-1">↑ 学び 1</a></p>
+    <div class="step-label">手順</div>
+    <div class="code">
+      <button class="copy">copy</button>
+      <pre><code>BASTION_PIP_ID=$(az network bastion show -g "$RG_NAME" -n "$BASTION_NAME" --query 'ipConfigurations[0].publicIPAddress.id' -o tsv)
+NIC_ID=$(az vm show -g "$RG_NAME" -n "$VM_NAME" --query 'networkProfile.networkInterfaces[0].id' -o tsv)
+az network public-ip show --ids "$BASTION_PIP_ID" --query '{sku:sku.name,allocation:publicIPAllocationMethod}' -o json
+az network nic show --ids "$NIC_ID" --query '{private:ipConfigurations[0].privateIPAddress,public:ipConfigurations[0].publicIPAddress.id}' -o json</code></pre>
+    </div>
+    <div class="step-label">期待される結果</div>
+    <div class="expect"><ul>
+      <li>Bastion の Public IP は Standard SKU、Static 割り当てとして表示される。</li>
+      <li>Jumpbox の NIC は private のみが表示され、public は null または空になる。</li>
+    </ul></div>
+    <div class="step-label">これでわかること</div>
+    <div class="insight">Portal からの管理アクセスは Bastion の Public IP を通る。Jumpbox 自体にインターネットから接続する経路を作っていないことを、二つのリソースの差として確認できる。</div>
+  </div>
+
+  <div class="card check" id="check-2">
+    <span class="tag">確認 2</span>
+    <h3>二つの NSG の受信規則を比べる</h3>
+    <p>Bastion のサービス用規則と、Jumpbox の VM 保護用規則を見分ける。 <a class="link-back" href="#learn-2">↑ 学び 2</a></p>
+    <div class="step-label">手順</div>
+    <div class="code">
+      <button class="copy">copy</button>
+      <pre><code>BASTION_NSG=$(az network nsg list -g "$RG_NAME" --query "[?contains(name, 'bastion')].name | [0]" -o tsv)
+JUMPBOX_NSG=$(az network nsg list -g "$RG_NAME" --query "[?contains(name, 'jumpbox')].name | [0]" -o tsv)
+az network nsg rule list -g "$RG_NAME" --nsg-name "$BASTION_NSG" --query "[?direction=='Inbound'].{name:name,port:destinationPortRange,source:sourceAddressPrefix}" -o table
+az network nsg rule list -g "$RG_NAME" --nsg-name "$JUMPBOX_NSG" --query "[?direction=='Inbound'].{name:name,access:access,port:destinationPortRange,source:sourceAddressPrefix}" -o table</code></pre>
+    </div>
+    <div class="step-label">期待される結果</div>
+    <div class="expect"><ul>
+      <li>Bastion NSG には HTTPS と Bastion サービス用の受信規則が表示される。</li>
+      <li>Jumpbox NSG には Bastion サブネットからの RDP/SSH 許可と、最後の全受信拒否が表示される。</li>
+    </ul></div>
+    <div class="step-label">これでわかること</div>
+    <div class="insight">Bastion の NSG はサービスが成立するための規則、Jumpbox の NSG は VM の受信面を絞るための規則である。同じ経路にあっても責務が異なる。</div>
+  </div>
+
+  <div class="card check" id="check-3">
+    <span class="tag">確認 3</span>
+    <h3>DB のネットワーク設定を取得する</h3>
+    <p>Flexible Server の public access、委任サブネット、Private DNS Zone を一度に確認する。 <a class="link-back" href="#learn-3">↑ 学び 3</a></p>
+    <div class="step-label">手順</div>
+    <div class="code">
+      <button class="copy">copy</button>
+      <pre><code>az postgres flexible-server show -g "$RG_NAME" -n "$PG_NAME" \
+  --query '{public:network.publicNetworkAccess,delegatedSubnet:network.delegatedSubnetResourceId,privateDnsZone:network.privateDnsZoneArmResourceId}' \
+  -o json</code></pre>
+    </div>
+    <div class="step-label">期待される結果</div>
+    <div class="expect"><ul>
+      <li>public は <code>Disabled</code> と表示される。</li>
+      <li>delegatedSubnet と privateDnsZone のリソース ID が空でない。</li>
+    </ul></div>
+    <div class="step-label">これでわかること</div>
+    <div class="insight">この DB は Public access の IP 許可リストで守るのではなく、VNet に注入する Private access で配置されている。DB の接続先を VNet 内のクライアントに限定する設計だと確認できる。</div>
+  </div>
+
+  <div class="card check" id="check-4">
+    <span class="tag">確認 4</span>
+    <h3>DNS Zone の VNet リンクとレコードを見る</h3>
+    <p>Private DNS Zone が VNet と結び付けられ、DB の名前解決に使う A レコードがあることを確かめる。 <a class="link-back" href="#learn-4">↑ 学び 4</a></p>
+    <div class="step-label">手順</div>
+    <div class="code">
+      <button class="copy">copy</button>
+      <pre><code>DNS_ZONE_ID=$(az postgres flexible-server show -g "$RG_NAME" -n "$PG_NAME" --query 'network.privateDnsZoneArmResourceId' -o tsv)
+DNS_ZONE_NAME=${DNS_ZONE_ID##*/}
+az network private-dns link vnet list -g "$RG_NAME" -z "$DNS_ZONE_NAME" --query '[].{name:name,vnet:virtualNetwork.id,registration:registrationEnabled}' -o table
+az network private-dns record-set a list -g "$RG_NAME" -z "$DNS_ZONE_NAME" --query '[].{name:name,records:arecords[].ipv4Address}' -o table</code></pre>
+    </div>
+    <div class="step-label">期待される結果</div>
+    <div class="expect"><ul>
+      <li>VNet link が 1 件以上表示され、VNet のリソース ID を指す。</li>
+      <li>DB に対応する A レコードが表示される。</li>
+    </ul></div>
+    <div class="step-label">これでわかること</div>
+    <div class="insight">DB の Private DNS Zone を VNet にリンクすることで、同じ VNet の Jumpbox から FQDN をプライベート アドレスへ解決できる。接続障害時には、5432 と DNS を別の観点で切り分けられる。</div>
+  </div>
+</section>
+
+<section id="pitfalls">
+  <h2>後始末とつまずき</h2>
+  <div class="card pitfall">
+    <h3>後始末：課金を止める</h3>
+    <p>Bastion、Windows VM、PostgreSQL Flexible Server は存在している間に課金される。学習を終えたら、同じ構成を使う予定がないことを確認してから削除する。</p>
+    <div class="code">
+      <button class="copy">copy</button>
+      <pre><code>terraform -chdir=main destroy
+az group exists --name "$RG_NAME"</code></pre>
+    </div>
+  </div>
+  <div class="card pitfall">
+    <h3>AzureRM 5.x では DNS Zone の VNet リンクを ID で指定する</h3>
+    <p>このテーマの provider は AzureRM 5.1.0 を使う。旧形式の <code>resource_group_name</code> と <code>private_dns_zone_name</code> は使えないため、現在のコードでは <code>private_dns_zone_id</code> を指定している。</p>
+  </div>
+  <div class="card pitfall">
+    <h3>apply 前にサブスクリプションのプレースホルダを置き換える</h3>
+    <p>root module の provider 設定ではサブスクリプション ID がプレースホルダになっている。実 ID をコードへ固定せず、認証方法に合わせて安全に設定してから plan/apply する。</p>
+  </div>
+</section>
+
+<section id="selfcheck">
+  <h2>理解度チェック</h2>
+  <p class="section-note">設定を思い出せるかではなく、理由を自分の言葉で説明できるかを問う。チェック状態はこのブラウザに保存される。</p>
+  <div class="card">
+    <ul class="selfcheck">
+      <li><input type="checkbox" data-key="sc-1"><span>Bastion に Public IP を置き、Jumpbox には置かない理由を説明できる。</span></li>
+      <li><input type="checkbox" data-key="sc-2"><span>Bastion と Jumpbox の NSG に別々の受信規則が必要な理由を説明できる。</span></li>
+      <li><input type="checkbox" data-key="sc-3"><span>VNet 統合した PostgreSQL が Public access とどう異なるかを説明できる。</span></li>
+      <li><input type="checkbox" data-key="sc-4"><span>閉域 DB への接続確認で、ポート確認と DNS 確認を分ける理由を説明できる。</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="refs">
+  <h2>参考リンク</h2>
+  <div class="card">
+    <ul class="links">
+      <li><a href="https://learn.microsoft.com/ja-jp/azure/postgresql/flexible-server/concepts-networking-private">PostgreSQL Flexible Server: VNet 統合による Private access</a><br><span class="desc">委任サブネット、公開エンドポイント、Private DNS Zone の仕様を確認する。</span></li>
+      <li><a href="https://learn.microsoft.com/ja-jp/azure/bastion/bastion-nsg">Azure Bastion の NSG</a><br><span class="desc">Bastion サブネットに NSG を付ける際の必須規則を確認する。</span></li>
+      <li><a href="https://learn.microsoft.com/ja-jp/cli/azure/network/bastion?view=azure-cli-latest">Azure CLI: az network bastion</a><br><span class="desc">Bastion Host の取得とトンネリングに使うコマンド群。</span></li>
+      <li><a href="https://learn.microsoft.com/ja-jp/cli/azure/postgres/flexible-server?view=azure-cli-latest">Azure CLI: az postgres flexible-server</a><br><span class="desc">Flexible Server のネットワーク設定を取得するコマンド群。</span></li>
+      <li><a href="https://learn.microsoft.com/ja-jp/cli/azure/network/private-dns/link/vnet?view=azure-cli-latest">Azure CLI: az network private-dns link vnet</a><br><span class="desc">Private DNS Zone と VNet のリンクを確認するコマンド群。</span></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  azure-learning / architectures/01 — 生成日 2026-08-16<br>
+  このまとめは Terraform コード、architecture.svg、Microsoft Learn、git 履歴をもとに生成。実環境への apply と Azure CLI の確認結果は未検証。
+</footer>
+
+</div>
+<script>
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.parentElement.querySelector('code');
+      navigator.clipboard.writeText(code.innerText).then(function () {
+        var prev = btn.textContent;
+        btn.textContent = 'copied';
+        setTimeout(function () { btn.textContent = prev; }, 1200);
+      });
+    });
+  });
+  var storeKey = 'arch-summary:' + location.pathname;
+  var saved = JSON.parse(localStorage.getItem(storeKey) || '{}');
+  document.querySelectorAll('.selfcheck input[data-key]').forEach(function (box) {
+    box.checked = !!saved[box.dataset.key];
+    box.addEventListener('change', function () {
+      saved[box.dataset.key] = box.checked;
+      localStorage.setItem(storeKey, JSON.stringify(saved));
+    });
+  });
+</script>
+</body>
+</html>
