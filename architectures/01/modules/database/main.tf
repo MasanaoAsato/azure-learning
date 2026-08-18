@@ -6,7 +6,8 @@ resource "random_password" "db_password" {
 
 resource "random_string" "random" {
   length  = 8
-  special = true
+  upper   = false
+  special = false
 }
 
 resource "azurerm_postgresql_flexible_server" "example" {
