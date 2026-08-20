@@ -192,6 +192,9 @@
     .code pre { border: 1px solid #ddd; white-space: pre-wrap; word-break: break-all; }
     a { color: inherit; text-decoration: none; }
   }
+  @media (max-width: 640px) {
+    table { display: block; overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
@@ -200,7 +203,7 @@
 <header class="hero">
   <span class="num">ARCHITECTURE 01</span>
   <h1>Azure Bastion から閉域 PostgreSQL を管理する</h1>
-  <p class="lead">Bastion を管理の入口に固定し、Jumpbox と VNet 統合した PostgreSQL の公開面を分けて確認する。</p>
+  <p class="lead">Azure Portal から Bastion 経由で Jumpbox に入り、名前解決・5432・pgAdmin で閉域 PostgreSQL への接続を確かめる。</p>
   <div class="chips">
     <span class="chip">Azure Bastion Standard</span>
     <span class="chip">Windows Jumpbox</span>
@@ -231,7 +234,7 @@
     <div class="body">
       <h3>外部に出す入口は Bastion だけにし、Jumpbox には Public IP を付けない</h3>
       <p>Portal から VM を操作できることと、VM の管理ポートを公開することは別である。Bastion に Public IP を関連付け、Jumpbox の NIC をプライベート IP だけにすると、管理経路を一か所に絞れる。</p>
-      <a class="link-check" href="#check-1">→ 確認 1：Bastion と Jumpbox の IP 関連付けを比較する</a>
+      <a class="link-check" href="#check-1">→ 確認 1：Portal から Bastion 経由で Jumpbox に入る</a>
     </div>
   </div>
 
@@ -240,25 +243,25 @@
     <div class="body">
       <h3>Bastion と Jumpbox の NSG は、役割ごとに許可する通信が異なる</h3>
       <p>Bastion 側にはサービス運用に必要な受信規則があり、Jumpbox 側には Bastion サブネットからの RDP/SSH だけを通す規則がある。両者を同じ「踏み台用 NSG」としてまとめないことで、公開入口と VM の受信面を混同しない。</p>
-      <a class="link-check" href="#check-2">→ 確認 2：二つの NSG の受信規則を比べる</a>
+      <a class="link-check" href="#check-2">→ 確認 2：Portal で二つの NSG を比べる</a>
     </div>
   </div>
 
   <div class="card learn" id="learn-3">
     <div class="idx">3</div>
     <div class="body">
-      <h3>PostgreSQL を VNet 統合すると、公開アクセスを無効にしても VNet 内から接続できる</h3>
-      <p>Flexible Server には委任サブネットと Private DNS Zone を渡し、`public_network_access_enabled = false` を指定している。接続可否は「インターネットから到達できるか」ではなく、委任されたサブネットと DNS を含む VNet 内の経路で決まる。</p>
-      <a class="link-check" href="#check-3">→ 確認 3：DB のネットワーク設定を取得する</a>
+      <h3>閉域 DB の接続では、名前解決と TCP 5432 を分けて確認する</h3>
+      <p>Jumpbox が DB の FQDN をプライベート IP に解決できても、5432 が通るとは限らない。PowerShell で二つを別々に観測すると、Private DNS と NSG のどちらを調べるべきか判断できる。</p>
+      <a class="link-check" href="#check-3">→ 確認 3：Jumpbox から DNS と 5432 を確認する</a>
     </div>
   </div>
 
   <div class="card learn" id="learn-4">
     <div class="idx">4</div>
     <div class="body">
-      <h3>閉域 DB の接続では、ポートだけでなく Private DNS Zone の VNet リンクも確認する</h3>
-      <p>Jumpbox が DB の FQDN を解決できなければ、5432 の許可規則だけでは接続できない。DNS Zone を VNet にリンクし、DB 用の A レコードが作成されるところまで見ると、名前解決とネットワーク到達性を分けて説明できる。</p>
-      <a class="link-check" href="#check-4">→ 確認 4：DNS Zone の VNet リンクとレコードを見る</a>
+      <h3>TCP 疎通だけで終わらせず、pgAdmin で認証と SQL 実行まで確認する</h3>
+      <p><code>Test-NetConnection</code> の成功はポートが開いていることしか証明しない。pgAdmin から <code>testdb</code> にログインしてクエリを実行すると、DB 資格情報、TLS、PostgreSQL サービスまで含めた接続を確認できる。</p>
+      <a class="link-check" href="#check-4">→ 確認 4：pgAdmin から DB に接続する</a>
     </div>
   </div>
 </section>
@@ -317,59 +320,58 @@
   </div>
   <div class="card">
     <h3>Jumpbox のクライアント導入は手動にしている</h3>
-    <p>VM 拡張でのツール導入はコメントアウトされており、Bastion 経由で RDP 接続した後に DB クライアントを手動で入れる前提である。自動構成までをこのテーマの完了条件には含めない割り切りになっている。</p>
+    <p>VM 拡張でのツール導入はコメントアウトされている。Bastion 経由で RDP 接続した後、Jumpbox に pgAdmin 4 を手動で導入し、実際の管理経路をたどる構成である。</p>
   </div>
 </section>
 
 <section id="checks">
   <h2>どう確認するか</h2>
-  <p class="section-note">実リソース名は環境ごとに異なるため、プレースホルダを置き換えて Azure CLI で確認する。Azure CLI へのサインインと、Terraform の apply 完了が前提。</p>
+  <p class="section-note">Terraform の apply 完了後、手元のターミナルで接続情報を確認し、Azure Portal から実際の管理経路をたどる。VM と DB のパスワードは別物なので取り違えない。</p>
 
   <div class="card">
-    <h3>共通の準備</h3>
+    <h3>手元で接続情報を確認する</h3>
+    <p>この学習環境は root output を定義していないため、ローカル state から VM と DB の接続情報を確認する。表示したパスワードは記録や共有をせず、Bastion と pgAdmin の入力欄だけに使う。</p>
     <div class="code">
       <button class="copy">copy</button>
-      <pre><code>az login
-export RG_NAME='&lt;resource-group-name&gt;'
-export BASTION_NAME='&lt;bastion-name&gt;'
-export VM_NAME='&lt;jumpbox-vm-name&gt;'
-export PG_NAME='&lt;postgres-server-name&gt;'</code></pre>
+      <pre><code>terraform -chdir=main state show module.jumpbox.azurerm_windows_virtual_machine.jumpbox
+terraform -chdir=main state show module.jumpbox.random_password.admin_password
+terraform -chdir=main state show module.database.azurerm_postgresql_flexible_server.example
+terraform -chdir=main state show module.database.random_password.db_password</code></pre>
     </div>
   </div>
 
   <div class="card check" id="check-1">
     <span class="tag">確認 1</span>
-    <h3>Bastion と Jumpbox の IP 関連付けを比較する</h3>
-    <p>Bastion には Public IP があり、Jumpbox の NIC には Public IP がないことを確かめる。 <a class="link-back" href="#learn-1">↑ 学び 1</a></p>
+    <h3>Azure Portal から Bastion 経由で Jumpbox に入る</h3>
+    <p>ブラウザーだけで Windows Jumpbox へ RDP 接続し、VM に Public IP がなくても管理できることを確かめる。 <a class="link-back" href="#learn-1">↑ 学び 1</a></p>
     <div class="step-label">手順</div>
-    <div class="code">
-      <button class="copy">copy</button>
-      <pre><code>BASTION_PIP_ID=$(az network bastion show -g "$RG_NAME" -n "$BASTION_NAME" --query 'ipConfigurations[0].publicIPAddress.id' -o tsv)
-NIC_ID=$(az vm show -g "$RG_NAME" -n "$VM_NAME" --query 'networkProfile.networkInterfaces[0].id' -o tsv)
-az network public-ip show --ids "$BASTION_PIP_ID" --query '{sku:sku.name,allocation:publicIPAllocationMethod}' -o json
-az network nic show --ids "$NIC_ID" --query '{private:ipConfigurations[0].privateIPAddress,public:ipConfigurations[0].publicIPAddress.id}' -o json</code></pre>
-    </div>
+    <div class="expect"><ol>
+      <li>Azure Portal で Jumpbox VM を開き、［接続］→［Bastion］を選ぶ。</li>
+      <li>プロトコルは RDP、ポートは 3389、認証は［VM パスワード］を選ぶ。</li>
+      <li>VM の管理者ユーザー名と VM 用パスワードを入力し、［接続］を押す。</li>
+      <li>新しいタブで Windows に入り、PowerShell で <code>ipconfig</code> を実行する。</li>
+    </ol></div>
     <div class="step-label">期待される結果</div>
     <div class="expect"><ul>
-      <li>Bastion の Public IP は Standard SKU、Static 割り当てとして表示される。</li>
-      <li>Jumpbox の NIC は private のみが表示され、public は null または空になる。</li>
+      <li>ブラウザーの新しいタブに Windows デスクトップが表示される。</li>
+      <li><code>ipconfig</code> の IPv4 アドレスが Jumpbox サブネットのプライベート IP になる。</li>
+      <li>VM の概要には Public IP が表示されない。</li>
     </ul></div>
     <div class="step-label">これでわかること</div>
-    <div class="insight">Portal からの管理アクセスは Bastion の Public IP を通る。Jumpbox 自体にインターネットから接続する経路を作っていないことを、二つのリソースの差として確認できる。</div>
+    <div class="insight">管理者は Bastion のブラウザーセッションを入口にできる。Jumpbox 自体の 3389 をインターネットへ公開しなくても、プライベート IP の VM を操作できる。</div>
   </div>
 
   <div class="card check" id="check-2">
     <span class="tag">確認 2</span>
-    <h3>二つの NSG の受信規則を比べる</h3>
-    <p>Bastion のサービス用規則と、Jumpbox の VM 保護用規則を見分ける。 <a class="link-back" href="#learn-2">↑ 学び 2</a></p>
+    <h3>Portal で二つの NSG の受信規則を比べる</h3>
+    <p>Bastion のサービス用規則と、Jumpbox の VM 保護用規則を Azure Portal で見分ける。 <a class="link-back" href="#learn-2">↑ 学び 2</a></p>
     <div class="step-label">手順</div>
-    <div class="code">
-      <button class="copy">copy</button>
-      <pre><code>BASTION_NSG=$(az network nsg list -g "$RG_NAME" --query "[?contains(name, 'bastion')].name | [0]" -o tsv)
-JUMPBOX_NSG=$(az network nsg list -g "$RG_NAME" --query "[?contains(name, 'jumpbox')].name | [0]" -o tsv)
-az network nsg rule list -g "$RG_NAME" --nsg-name "$BASTION_NSG" --query "[?direction=='Inbound'].{name:name,port:destinationPortRange,source:sourceAddressPrefix}" -o table
-az network nsg rule list -g "$RG_NAME" --nsg-name "$JUMPBOX_NSG" --query "[?direction=='Inbound'].{name:name,access:access,port:destinationPortRange,source:sourceAddressPrefix}" -o table</code></pre>
-    </div>
+    <div class="expect"><ol>
+      <li>Portal で対象リソースグループを開く。</li>
+      <li>Bastion 用 NSG の［受信セキュリティ規則］を開く。</li>
+      <li>別タブで Jumpbox 用 NSG の［受信セキュリティ規則］を開く。</li>
+      <li>送信元、宛先ポート、優先度を見比べる。</li>
+    </ol></div>
     <div class="step-label">期待される結果</div>
     <div class="expect"><ul>
       <li>Bastion NSG には HTTPS と Bastion サービス用の受信規則が表示される。</li>
@@ -381,43 +383,50 @@ az network nsg rule list -g "$RG_NAME" --nsg-name "$JUMPBOX_NSG" --query "[?dire
 
   <div class="card check" id="check-3">
     <span class="tag">確認 3</span>
-    <h3>DB のネットワーク設定を取得する</h3>
-    <p>Flexible Server の public access、委任サブネット、Private DNS Zone を一度に確認する。 <a class="link-back" href="#learn-3">↑ 学び 3</a></p>
+    <h3>Jumpbox から DNS と TCP 5432 を確認する</h3>
+    <p>Bastion セッション内の PowerShell で、DB の名前解決とポート疎通を分けて確認する。 <a class="link-back" href="#learn-3">↑ 学び 3</a></p>
     <div class="step-label">手順</div>
     <div class="code">
       <button class="copy">copy</button>
-      <pre><code>az postgres flexible-server show -g "$RG_NAME" -n "$PG_NAME" \
-  --query '{public:network.publicNetworkAccess,delegatedSubnet:network.delegatedSubnetResourceId,privateDnsZone:network.privateDnsZoneArmResourceId}' \
-  -o json</code></pre>
+      <pre><code>$DbFqdn = "&lt;Flexible Server の FQDN&gt;"
+Resolve-DnsName $DbFqdn
+Test-NetConnection $DbFqdn -Port 5432 -InformationLevel Detailed</code></pre>
     </div>
     <div class="step-label">期待される結果</div>
     <div class="expect"><ul>
-      <li>public は <code>Disabled</code> と表示される。</li>
-      <li>delegatedSubnet と privateDnsZone のリソース ID が空でない。</li>
+      <li><code>Resolve-DnsName</code> が PostgreSQL サブネット内のプライベート IP を返す。</li>
+      <li><code>SourceAddress</code> が Jumpbox のプライベート IP になる。</li>
+      <li><code>TcpTestSucceeded</code> が <code>True</code> になる。</li>
     </ul></div>
     <div class="step-label">これでわかること</div>
-    <div class="insight">この DB は Public access の IP 許可リストで守るのではなく、VNet に注入する Private access で配置されている。DB の接続先を VNet 内のクライアントに限定する設計だと確認できる。</div>
+    <div class="insight">Private DNS Zone の VNet リンクが名前解決に使われ、Jumpbox から DB まで TCP 5432 が通る。DNS が失敗した場合と TCP だけ失敗した場合を分けて調べられる。</div>
   </div>
 
   <div class="card check" id="check-4">
     <span class="tag">確認 4</span>
-    <h3>DNS Zone の VNet リンクとレコードを見る</h3>
-    <p>Private DNS Zone が VNet と結び付けられ、DB の名前解決に使う A レコードがあることを確かめる。 <a class="link-back" href="#learn-4">↑ 学び 4</a></p>
+    <h3>Jumpbox の pgAdmin から DB に接続する</h3>
+    <p>pgAdmin 4 を Jumpbox に導入し、DB 認証と SQL 実行まで成功することを確かめる。 <a class="link-back" href="#learn-4">↑ 学び 4</a></p>
     <div class="step-label">手順</div>
+    <div class="expect"><ol>
+      <li>Jumpbox の Edge で pgAdmin 4 の Windows 版公式ページを開き、最新の署名済みインストーラーを実行する。</li>
+      <li>pgAdmin を起動し、［Register］→［Server］を開く。General の Name は任意の識別名にする。</li>
+      <li>Connection に FQDN、5432、<code>testdb</code>、<code>pgadmin</code>、DB 用パスワードを入力し、Parameters の SSL mode を <code>require</code> にして保存する。</li>
+      <li><code>testdb</code> の Query Tool を開き、次の SQL を実行する。</li>
+    </ol></div>
     <div class="code">
       <button class="copy">copy</button>
-      <pre><code>DNS_ZONE_ID=$(az postgres flexible-server show -g "$RG_NAME" -n "$PG_NAME" --query 'network.privateDnsZoneArmResourceId' -o tsv)
-DNS_ZONE_NAME=${DNS_ZONE_ID##*/}
-az network private-dns link vnet list -g "$RG_NAME" -z "$DNS_ZONE_NAME" --query '[].{name:name,vnet:virtualNetwork.id,registration:registrationEnabled}' -o table
-az network private-dns record-set a list -g "$RG_NAME" -z "$DNS_ZONE_NAME" --query '[].{name:name,records:arecords[].ipv4Address}' -o table</code></pre>
+      <pre><code>SELECT current_database(), current_user,
+       inet_server_addr(), inet_server_port(),
+       version();</code></pre>
     </div>
     <div class="step-label">期待される結果</div>
     <div class="expect"><ul>
-      <li>VNet link が 1 件以上表示され、VNet のリソース ID を指す。</li>
-      <li>DB に対応する A レコードが表示される。</li>
+      <li>Object Explorer でサーバーと <code>testdb</code> を展開できる。</li>
+      <li>クエリ結果の database が <code>testdb</code>、user が <code>pgadmin</code> になる。</li>
+      <li>server address がプライベート IP、server port が <code>5432</code> になる。</li>
     </ul></div>
     <div class="step-label">これでわかること</div>
-    <div class="insight">DB の Private DNS Zone を VNet にリンクすることで、同じ VNet の Jumpbox から FQDN をプライベート アドレスへ解決できる。接続障害時には、5432 と DNS を別の観点で切り分けられる。</div>
+    <div class="insight">Bastion から入った Jumpbox を DB クライアントとして使い、公開アクセスを有効にせず PostgreSQL へログインして SQL を実行できる。TCP 疎通だけでなく、DB サービスとして利用可能なことまで確認できる。</div>
   </div>
 </section>
 
@@ -437,8 +446,8 @@ az group exists --name "$RG_NAME"</code></pre>
     <p>このテーマの provider は AzureRM 5.1.0 を使う。旧形式の <code>resource_group_name</code> と <code>private_dns_zone_name</code> は使えないため、現在のコードでは <code>private_dns_zone_id</code> を指定している。</p>
   </div>
   <div class="card pitfall">
-    <h3>apply 前にサブスクリプションのプレースホルダを置き換える</h3>
-    <p>root module の provider 設定ではサブスクリプション ID がプレースホルダになっている。実 ID をコードへ固定せず、認証方法に合わせて安全に設定してから plan/apply する。</p>
+    <h3>Windows VM に DB クライアントは最初から入っていない</h3>
+    <p>この Terraform は pgAdmin や <code>psql</code> をインストールしない。<code>psql</code> が認識されないのは導通障害ではないため、まず PowerShell で DNS/TCP を確認し、その後 pgAdmin を手動で導入する。</p>
   </div>
 </section>
 
@@ -449,8 +458,8 @@ az group exists --name "$RG_NAME"</code></pre>
     <ul class="selfcheck">
       <li><input type="checkbox" data-key="sc-1"><span>Bastion に Public IP を置き、Jumpbox には置かない理由を説明できる。</span></li>
       <li><input type="checkbox" data-key="sc-2"><span>Bastion と Jumpbox の NSG に別々の受信規則が必要な理由を説明できる。</span></li>
-      <li><input type="checkbox" data-key="sc-3"><span>VNet 統合した PostgreSQL が Public access とどう異なるかを説明できる。</span></li>
-      <li><input type="checkbox" data-key="sc-4"><span>閉域 DB への接続確認で、ポート確認と DNS 確認を分ける理由を説明できる。</span></li>
+      <li><input type="checkbox" data-key="sc-3"><span>閉域 DB への接続確認で、名前解決と TCP 5432 を分ける理由を説明できる。</span></li>
+      <li><input type="checkbox" data-key="sc-4"><span><code>Test-NetConnection</code> の成功と、pgAdmin で SQL を実行できることの違いを説明できる。</span></li>
     </ul>
   </div>
 </section>
@@ -461,16 +470,16 @@ az group exists --name "$RG_NAME"</code></pre>
     <ul class="links">
       <li><a href="https://learn.microsoft.com/ja-jp/azure/postgresql/flexible-server/concepts-networking-private">PostgreSQL Flexible Server: VNet 統合による Private access</a><br><span class="desc">委任サブネット、公開エンドポイント、Private DNS Zone の仕様を確認する。</span></li>
       <li><a href="https://learn.microsoft.com/ja-jp/azure/bastion/bastion-nsg">Azure Bastion の NSG</a><br><span class="desc">Bastion サブネットに NSG を付ける際の必須規則を確認する。</span></li>
-      <li><a href="https://learn.microsoft.com/ja-jp/cli/azure/network/bastion?view=azure-cli-latest">Azure CLI: az network bastion</a><br><span class="desc">Bastion Host の取得とトンネリングに使うコマンド群。</span></li>
-      <li><a href="https://learn.microsoft.com/ja-jp/cli/azure/postgres/flexible-server?view=azure-cli-latest">Azure CLI: az postgres flexible-server</a><br><span class="desc">Flexible Server のネットワーク設定を取得するコマンド群。</span></li>
-      <li><a href="https://learn.microsoft.com/ja-jp/cli/azure/network/private-dns/link/vnet?view=azure-cli-latest">Azure CLI: az network private-dns link vnet</a><br><span class="desc">Private DNS Zone と VNet のリンクを確認するコマンド群。</span></li>
+      <li><a href="https://learn.microsoft.com/ja-jp/azure/bastion/bastion-connect-vm-rdp-windows">Azure Bastion: Portal から Windows VM へ RDP 接続</a><br><span class="desc">ブラウザーで Bastion 接続する手順と必要な認証方法を確認する。</span></li>
+      <li><a href="https://www.pgadmin.org/download/pgadmin-4-windows/">pgAdmin 4 for Windows</a><br><span class="desc">Jumpbox に導入する Windows 版の公式インストーラー。</span></li>
+      <li><a href="https://www.pgadmin.org/docs/pgadmin4/latest/server_dialog.html">pgAdmin 4: Server Dialog</a><br><span class="desc">FQDN、ポート、Maintenance database、SSL mode の入力項目を確認する。</span></li>
     </ul>
   </div>
 </section>
 
 <footer>
-  azure-learning / architectures/01 — 生成日 2026-08-16<br>
-  このまとめは Terraform コード、architecture.svg、Microsoft Learn、git 履歴をもとに生成。実環境への apply と Azure CLI の確認結果は未検証。
+  azure-learning / architectures/01 — 更新日 2026-08-17<br>
+  このまとめは Terraform コード、architecture.svg、Microsoft Learn、pgAdmin 公式ドキュメントをもとに更新。Bastion 経由の Jumpbox 接続と PowerShell の DNS/TCP 疎通は実測済み。pgAdmin のインストールと SQL 実行は未実測。
 </footer>
 
 </div>
